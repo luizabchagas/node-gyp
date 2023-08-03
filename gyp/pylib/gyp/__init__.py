@@ -1,9 +1,10 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 # Copyright (c) 2012 Google Inc. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import print_function
 
 import copy
 import gyp.input
@@ -15,6 +16,12 @@ import sys
 import traceback
 from gyp.common import GypError
 
+try:
+    # Python 2
+    string_types = basestring
+except NameError:
+    # Python 3
+    string_types = str
 
 # Default debug modes for GYP
 debug = {}
@@ -61,6 +68,7 @@ def Load(
     params=None,
     check=False,
     circular_check=True,
+    duplicate_basename_check=True,
 ):
     """
   Loads one or more specified build files.
@@ -103,18 +111,6 @@ def Load(
     generator = __import__(generator_name, globals(), locals(), generator_name)
     for (key, val) in generator.generator_default_variables.items():
         default_variables.setdefault(key, val)
-
-    output_dir = params["options"].generator_output or params["options"].toplevel_dir
-    if default_variables["GENERATOR"] == "ninja":
-        default_variables.setdefault(
-            "PRODUCT_DIR_ABS",
-            os.path.join(output_dir, "out", default_variables["build_type"]),
-        )
-    else:
-        default_variables.setdefault(
-            "PRODUCT_DIR_ABS",
-            os.path.join(output_dir, default_variables["CONFIGURATION_NAME"]),
-        )
 
     # Give the generator the opportunity to set additional variables based on
     # the params it will receive in the output phase.
@@ -160,6 +156,7 @@ def Load(
         generator_input_info,
         check,
         circular_check,
+        duplicate_basename_check,
         params["parallel"],
         params["root_targets"],
     )
@@ -198,7 +195,7 @@ def ShlexEnv(env_name):
 
 def FormatOpt(opt, value):
     if opt.startswith("--"):
-        return f"{opt}={value}"
+        return "%s=%s" % (opt, value)
     return opt + value
 
 
@@ -434,6 +431,20 @@ def gyp_main(args):
         regenerate=False,
         help="don't check for circular relationships between files",
     )
+    # --no-duplicate-basename-check disables the check for duplicate basenames
+    # in a static_library/shared_library project. Visual C++ 2008 generator
+    # doesn't support this configuration. Libtool on Mac also generates warnings
+    # when duplicate basenames are passed into Make generator on Mac.
+    # TODO(yukawa): Remove this option when these legacy generators are
+    # deprecated.
+    parser.add_argument(
+        "--no-duplicate-basename-check",
+        dest="duplicate_basename_check",
+        action="store_false",
+        default=True,
+        regenerate=False,
+        help="don't check for duplicate basenames",
+    )
     parser.add_argument(
         "--no-parallel",
         action="store_true",
@@ -464,19 +475,8 @@ def gyp_main(args):
         metavar="TARGET",
         help="include only TARGET and its deep dependencies",
     )
-    parser.add_argument(
-        "-V",
-        "--version",
-        dest="version",
-        action="store_true",
-        help="Show the version and exit.",
-    )
 
     options, build_files_arg = parser.parse_args(args)
-    if options.version:
-        import pkg_resources
-        print(f"v{pkg_resources.get_distribution('gyp-next').version}")
-        return 0
     build_files = build_files_arg
 
     # Set up the configuration directory (defaults to ~/.gyp)
@@ -540,7 +540,7 @@ def gyp_main(args):
         for option, value in sorted(options.__dict__.items()):
             if option[0] == "_":
                 continue
-            if isinstance(value, str):
+            if isinstance(value, string_types):
                 DebugOutput(DEBUG_GENERAL, "  %s: '%s'", option, value)
             else:
                 DebugOutput(DEBUG_GENERAL, "  %s: %s", option, value)
@@ -651,6 +651,7 @@ def gyp_main(args):
             params,
             options.check,
             options.circular_check,
+            options.duplicate_basename_check,
         )
 
         # TODO(mark): Pass |data| for now because the generator needs a list of

@@ -1,4 +1,3 @@
-*.swp
 gyp/test
 node_modules
 test/.node-gyp

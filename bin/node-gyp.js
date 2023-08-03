@@ -6,7 +6,7 @@ process.title = 'node-gyp'
 
 const envPaths = require('env-paths')
 const gyp = require('../')
-const log = require('../lib/log')
+const log = require('npmlog')
 const os = require('os')
 
 /**
@@ -14,11 +14,11 @@ const os = require('os')
  */
 
 const prog = gyp()
-let completed = false
+var completed = false
 prog.parseArgv(process.argv)
 prog.devDir = prog.opts.devdir
 
-const homeDir = os.homedir()
+var homeDir = os.homedir()
 if (prog.devDir) {
   prog.devDir = prog.devDir.replace(/^~/, homeDir)
 } else if (homeDir) {
@@ -48,11 +48,11 @@ log.info('using', 'node@%s | %s | %s', process.versions.node, process.platform, 
  * Change dir if -C/--directory was passed.
  */
 
-const dir = prog.opts.directory
+var dir = prog.opts.directory
 if (dir) {
-  const fs = require('fs')
+  var fs = require('fs')
   try {
-    const stat = fs.statSync(dir)
+    var stat = fs.statSync(dir)
     if (stat.isDirectory()) {
       log.info('chdir', dir)
       process.chdir(dir)
@@ -69,7 +69,7 @@ if (dir) {
 }
 
 function run () {
-  const command = prog.todo.shift()
+  var command = prog.todo.shift()
   if (!command) {
     // done!
     completed = true
@@ -86,7 +86,7 @@ function run () {
       return process.exit(1)
     }
     if (command.name === 'list') {
-      const versions = arguments[1]
+      var versions = arguments[1]
       if (versions.length > 0) {
         versions.forEach(function (version) {
           console.log(version)
@@ -120,7 +120,7 @@ process.on('uncaughtException', function (err) {
 
 function errorMessage () {
   // copied from npm's lib/utils/error-handler.js
-  const os = require('os')
+  var os = require('os')
   log.error('System', os.type() + ' ' + os.release())
   log.error('command', process.argv
     .map(JSON.stringify).join(' '))
